@@ -5,7 +5,7 @@ use std::{env, fmt::Debug, fs, io, process::exit};
 /// Bencoding datatypes
 #[derive(PartialEq, Eq)]
 enum DataType {
-    Int(i32),
+    Int(i64),
     Str(Vec<u8>),
     List(Vec<DataType>),
     Dict(Vec<(Vec<u8>, DataType)>),
@@ -47,9 +47,9 @@ impl Debug for DataType {
 }
 
 /// returns the number and how many chars it used
-fn decode_int(str: &[u8], delim: char) -> (i32, usize) {
+fn decode_int(str: &[u8], delim: char) -> (i64, usize) {
     let mut chars = str.iter().enumerate(); // (usize, char)
-    let mut number: i32 = 0;
+    let mut number: i64 = 0;
     let mut negative = 1;
     loop {
         let char = chars.next().unwrap();
@@ -57,7 +57,7 @@ fn decode_int(str: &[u8], delim: char) -> (i32, usize) {
         if *char.1 as char == '-' { negative = -1 }
         else {
             number *= 10;
-            number += (char.1 - 48) as i32;
+            number += (char.1 - 48) as i64;
         }
     }
 }

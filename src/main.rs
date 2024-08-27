@@ -1,14 +1,48 @@
 #![feature(iter_advance_by)]
 
-use std::{env, fmt::Debug, fs, io};
+use std::{collections::HashMap, env, fmt::Debug, fs, io};
+
+use rand::Rng;
 
 /// Bencoding datatypes
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 enum DataType {
     Int(i64),
     Str(Vec<u8>),
     List(Vec<DataType>),
     Dict(Vec<(Vec<u8>, DataType)>),
+}
+
+impl DataType {
+    pub fn get(&self, key: &str) -> Result<DataType, ()> {
+        let key = key.chars().map(|c| {c as u8}).collect::<Vec<u8>>();
+        let mut output: Result<DataType, ()> = Err(()); 
+        if let DataType::Dict(x) = self {
+            for item in x {
+                if item.0 == key {
+                    output = Ok(item.1.clone());
+                }
+            }
+        }
+
+        output
+    }
+
+    pub fn get_string(&self) -> Result<String, ()> {
+        if let DataType::Str(x) = self {
+            return Ok(x.iter().map(|c| {*c as char}).collect());
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn get_int(&self) -> Result<i64, ()> {
+        if let DataType::Int(x) = self {
+            return Ok(*x);
+        } else {
+            Err(())
+        }
+    }
 }
 
 impl Debug for DataType {
@@ -121,7 +155,8 @@ fn decoder(input_str: &[u8]) -> DataType {
     decoder_with_len(input_str).0
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), ()> {
     let args: Vec<String> = env::args().collect();
     
     let mut file_name = String::new();
@@ -134,10 +169,38 @@ fn main() {
         file_name.pop();
     }
     
-    println!("Using file \"{file_name}\"");
+    println!("USING FILE \"{file_name}\"");
     
     let file = fs::read(file_name).unwrap();
-    println!("{:?}", decoder(&file[..]));
+    let data = decoder(&file[..]);
+
+    let announce = data.get("announce")?.get_string()?;
+    let info = data.get("info")?;
+    let piece_length = info.get("piece length")?.get_int()?;
+    let pieces = info.get("pieces")?.get_string()?;
+    let name = info.get("name")?.get_string()?;
+    let length = info.get("length")?.get_int()?;
+
+    let peer_id: String = String::from("-RT0001-")+
+        &(0..12)
+        .map(|_| {rand::thread_rng().gen_range(0..=9)})
+        .map(|c| {println!("{c}");c.to_string()})
+        .collect::<String>();
+
+    // dbg!(announce, info, piece_length, name, length, peer_id);
+
+    let mut map = HashMap::new();
+    map.insert("info_hash", "v");
+    map.insert("peer_id", &peer_id);
+    map.insert("uploaded", "v");
+    map.insert("downloaded", "v");
+    map.insert("left", "v");
+    map.insert("port", "v");
+    map.insert("compact", "v");
+
+    let client = reqwest::Client::new();
+
+    Ok(())
 }
 
 #[cfg(test)]

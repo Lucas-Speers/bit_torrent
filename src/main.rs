@@ -1,6 +1,6 @@
 #![feature(iter_advance_by)]
 
-use std::{env, fmt::Debug, fs, io, process::exit};
+use std::{env, fmt::Debug, fs, io};
 
 /// Bencoding datatypes
 #[derive(PartialEq, Eq)]
@@ -30,7 +30,7 @@ impl Debug for DataType {
             for item in x {
                 write!(f, "{item:?}\n").unwrap();
             }
-            write!(f, "\n)").unwrap();
+            write!(f, ")").unwrap();
         } else if let DataType::Dict(x) = self {
             write!(f, "Dict(\n").unwrap();
             for pair in x {
@@ -40,7 +40,7 @@ impl Debug for DataType {
                 }
                 write!(f, ": {:?}\n", pair.1).unwrap();
             }
-            write!(f, "\n)").unwrap();
+            write!(f, ")").unwrap();
         }
         Ok(())
     }
@@ -75,7 +75,6 @@ fn decode_str(str: &[u8]) -> (Vec<u8>, usize) {
     (string, int.1+len)
 }
 
-/// Warning! Does not check the validity of the input
 fn decoder_with_len(input_str: &[u8]) -> (DataType, usize) {
     match *input_str.iter().next().unwrap() as char {
         'i' => { // integer
@@ -115,6 +114,9 @@ fn decoder_with_len(input_str: &[u8]) -> (DataType, usize) {
     }
 }
 
+/// Warning! Does not check the validity of the input
+/// 
+/// Reads the Bencoding file
 fn decoder(input_str: &[u8]) -> DataType {
     decoder_with_len(input_str).0
 }

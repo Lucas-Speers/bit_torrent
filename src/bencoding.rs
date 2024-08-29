@@ -142,9 +142,44 @@ fn decoder_with_len(input_str: &[u8]) -> (DataType, usize) {
     }
 }
 
-/// Warning! Does not check the validity of the input
-/// 
 /// Reads the Bencoding file
 pub fn decoder(input_str: &[u8]) -> DataType {
     decoder_with_len(input_str).0
+}
+
+pub fn encoder(data: &DataType) -> String {
+    let mut output = String::new();
+    match data {
+        DataType::Int(x) => {
+            output.push('i');
+            output.push_str(&x.to_string());
+            output.push('e');
+        },
+        DataType::Str(x) => {
+            output.push_str(&x.len().to_string());
+            output.push(':');
+            output.push_str(
+                &x.iter()
+                .map(|c| {*c as char})
+                .collect::<String>()
+            )
+        },
+        DataType::List(x) => {
+            output.push('l');
+            for item in x {
+                output.push_str(&encoder(item));
+            }
+            output.push('e');
+        },
+        DataType::Dict(x) => {
+            output.push('d');
+            for item in x {
+                output.push_str(&encoder(&DataType::Str(item.0.clone())));
+                output.push_str(&encoder(&item.1));
+            }
+            output.push('e');
+        },
+    }
+
+    output
 }

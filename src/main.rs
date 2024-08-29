@@ -2,9 +2,12 @@
 #![allow(unused)]
 
 mod bencoding;
+mod client;
 
 use std::{collections::HashMap, env, fmt::Debug, fs, io};
+use client::Client;
 use rand::Rng;
+use sha1_smol::Sha1;
 
 fn file_size(bytes: u64) -> String {
     match bytes {
@@ -29,7 +32,7 @@ async fn main() -> Result<(), ()> {
         file_name.pop();
     }
     
-    println!("USING: \"{file_name}\"");
+    println!("USING TORRENT FILE: \"{file_name}\"");
     
     let file = fs::read(file_name).unwrap();
     let data = bencoding::decoder(&file[..]);
@@ -41,19 +44,18 @@ async fn main() -> Result<(), ()> {
     let name = info.get("name")?.get_string()?;
     let length = info.get("length")?.get_int()?;
 
-    let peer_id: String = String::from("-RT0001-")+
+    let peer_id: String = String::from("-RB0001-")+
         &(0..12)
         .map(|_| {rand::thread_rng().gen_range(0..=9)})
         .map(|c| {c.to_string()})
         .collect::<String>();
 
-    println!("ANOUNCE: \"{announce}\"");
-    println!("FILE NAME: \"{name}\"");
-    println!("FILE SIZE: {}", file_size(length));
+    println!("ANOUNCE SERVER:     \"{announce}\"");
+    println!("FILE NAME:          \"{name}\"");
+    println!("FILE SIZE:          {}", file_size(length));
 
-    // let params = [];
-
-    let client = reqwest::Client::new();
+    let client = Client::new(peer_id, Sha1::from(&bencoding::encoder(&info)).digest().to_string());
+    client.start().await;
 
     Ok(())
 }

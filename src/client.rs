@@ -1,63 +1,74 @@
+use std::fmt::Write;
 
+use crate::{bencoding::{self, DataType}, utils};
 
 pub struct Client {
+    announce: String,
     peer_id: String,
     info_hash: String,
+    file_length: usize,
 }
 
 impl Client {
-    pub fn new(peer_id: String, info_hash: String) -> Client {
-        Client {peer_id, info_hash}
+    pub fn new(announce: String, peer_id: String, info_hash: String, file_length: usize) -> Client {
+        Client {announce, peer_id, info_hash, file_length}
     }
-    pub async fn connect(
+    pub fn connect(
         &self,
-        client: reqwest::Client,
         first: bool,
         uploaded: u64,
         downloaded: u64,
-    ) -> Result<(), ()> {
-        let params = [
-            ("info_hash", self.info_hash.as_ref()),
-            ("peer_id", self.peer_id.as_ref()),
-            ("uploaded", "0"),
-            ("downloaded", "0"),
-            ("left", ""),
-            ("port", "6889"),
-            ("compact", "1"),
-        ];
+    ) -> Result<DataType, ()> {
+
+        let url_builder = ureq::get(&self.announce)
+            .query("peer_id", &self.peer_id)
+            .query("uploaded", "0")
+            .query("downloaded", "0")
+            .query("left", &self.file_length.to_string())
+            .query("port", "6889")
+            .query("compact", "1");
+        
+        let url = url_builder.url().to_owned() + "&info_hash=" + &self.info_hash;
     
-        println!("{}", url_encode(&params));
+        println!("{}", url);
+
+        let body = ureq::get(&url)
+            .call().unwrap()
+            .into_string().unwrap();
+
+        println!("{body}");
     
-        // let res = reqwest::get("http://example.com").await.unwrap();
-        // println!("Status: {}", res.status());
-        // println!("Headers:\n{:#?}", res.headers());
+        
     
-        // let body = res.text().await.unwrap();
-        // println!("Body:\n{}", body);
-    
-        Ok(())
+        Ok(bencoding::decoder(body.as_bytes()))
     }
-    pub async fn start(&self) {
-        let client = reqwest::Client::new();
-    
-        // let body = reqwest::get("https://torrent.ubuntu.com/announce?info_hash=%90%28%9F%D3M%FC%1C%F8%F3%16%A2h%AD%D85L%853DX&peer_id=-PC0001-706887310628&uploaded=0&downloaded=0&left=699400192&port=6889&compact=1")
-        //     .await.unwrap()
-        //     .text()
-        //     .await.unwrap();
-    
-        // println!("RESPONCE: {body}");
-    
-        self.connect(client, true, 0, 0).await;
+    pub fn start(&self) {
+        let r = self.connect(true, 0, 0).unwrap();
+
+        println!("{r:?}");
     }
 }
 
-fn url_encode(params: &[(&str, &str)]) -> String {
+pub fn url_encode_bytes(content: &[u8]) -> String {
+    let mut out: String = String::new();
+
+    for byte in content.iter() {
+        match *byte as char {
+            '0'..='9' | 'a'..='z' | 'A'..='Z' | '.' | '-' | '_' | '~' => out.push(*byte as char),
+            _ => write!(&mut out, "%{:02X}", byte).unwrap(),
+        };
+    }
+
+    out
+}
+
+fn url_encode(params: &[(&[u8], &[u8])]) -> String {
     let mut output = String::new();
 
     for param in params {
-        output.push_str(&urlencoding::encode(param.0));
+        output.push_str(&url_encode_bytes(param.0));
         output.push('=');
-        output.push_str(&urlencoding::encode(param.1));
+        output.push_str(&url_encode_bytes(param.1));
         output.push('&');
     }
     output.pop();

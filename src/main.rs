@@ -3,8 +3,9 @@
 
 mod bencoding;
 mod client;
+mod utils;
 
-use std::{collections::HashMap, env, fmt::Debug, fs, io};
+use std::{collections::HashMap, env, fmt::Debug, fs::{self, File}, io::{self, Write}, sync::Mutex};
 use client::Client;
 use rand::Rng;
 use sha1_smol::Sha1;
@@ -18,8 +19,7 @@ fn file_size(bytes: u64) -> String {
     }    
 }
 
-#[tokio::main]
-async fn main() -> Result<(), ()> {
+fn main() -> Result<(), ()> {
     let args: Vec<String> = env::args().collect();
     
     let mut file_name = String::new();
@@ -37,12 +37,21 @@ async fn main() -> Result<(), ()> {
     let file = fs::read(file_name).unwrap();
     let data = bencoding::decoder(&file[..]);
 
+    
+    println!("READ FILE SUCCESSFULY");
+
     let announce = data.get("announce")?.get_string()?;
+    println!("1");
     let info = data.get("info")?;
+    println!("1");
     let piece_length = info.get("piece length")?.get_int()?;
+    println!("1");
     let pieces = info.get("pieces")?.get_string()?;
+    println!("1");
     let name = info.get("name")?.get_string()?;
+    println!("1");
     let length = info.get("length")?.get_int()?;
+    println!("1");
 
     let peer_id: String = String::from("-RB0001-")+
         &(0..12)
@@ -54,8 +63,19 @@ async fn main() -> Result<(), ()> {
     println!("FILE NAME:          \"{name}\"");
     println!("FILE SIZE:          {}", file_size(length));
 
-    let client = Client::new(peer_id, Sha1::from(&bencoding::encoder(&info)).digest().to_string());
-    client.start().await;
+    println!("INFO: {:?}", info);
+
+    let info_str = bencoding::encoder(&info);
+    println!("{}", info_str.chars().last().unwrap());
+    println!("{}", Sha1::from(&info_str).digest().to_string());
+
+    let client = Client::new(
+        announce,
+        peer_id,
+        bencoding::get_info_hash(),
+        length as usize
+    );
+    client.start();
 
     Ok(())
 }
